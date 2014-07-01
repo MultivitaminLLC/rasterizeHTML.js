@@ -17,7 +17,4 @@ var isWebkit = navigator.userAgent.indexOf("WebKit") >= 0,
     },
     ifNotInPhantomJSAndNotLocalRunnerIt = function (text, functionHandle) {
         return testDisabledOnCondition(! isPhantomJs && ! isLocalRunner, text, functionHandle);
-    },
-    ifNotInWebKitAndNotLocalRunnerIt = function (text, functionHandle) {
-        return testDisabledOnCondition(! isWebkit && ! isLocalRunner, text, functionHandle);
     };

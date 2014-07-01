@@ -157,7 +157,19 @@ var browser = (function (util, xhrproxies, ayepromise, theWindow) {
                 size;
 
             try {
-                size = calculateContentSize(doc, options.clip, viewport, zoom);
+                if (zoom===1) {
+                    size={
+                        left: 0,
+                        top: 0,
+                        width: options.width,
+                        height:  options.height,
+                        viewportWidth: options.width,
+                        viewportHeight: options.height
+                    };
+
+                } else {
+                    size = calculateContentSize(doc, options.clip, viewport, zoom);
+                }
 
                 theWindow.document.getElementsByTagName("body")[0].removeChild(iframe);
 
