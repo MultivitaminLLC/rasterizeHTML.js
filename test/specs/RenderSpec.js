@@ -13,6 +13,17 @@ describe("The rendering process", function () {
             };
         };
 
+        var sandbox;
+
+        beforeEach(function () {
+            sandbox = document.createElement('div');
+            document.body.appendChild(sandbox);
+        });
+
+        afterEach(function () {
+            document.body.removeChild(sandbox);
+        });
+
         it("should return a SVG with embeded HTML", function () {
             var doc = document.implementation.createHTMLDocument("");
             doc.body.innerHTML = "Test content";
@@ -68,7 +79,7 @@ describe("The rendering process", function () {
 
             expect(svgCode).toMatch(new RegExp(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="123" height="987">' +
-                    '<foreignObject x="-2" y="-7" width="200" height="1000">' +
+                    '<foreignObject x="-2" y="-7" width="200" height="1000".*>' +
                         '<html xmlns="http://www.w3.org/1999/xhtml">' +
                             '<head>' +
                                 '<title(/>|></title>)' +
@@ -91,7 +102,7 @@ describe("The rendering process", function () {
 
             expect(svgCode).toMatch(new RegExp(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="123" height="987">' +
-                    '<foreignObject x="0" y="0" width="12" height="99" style="-webkit-transform: scale\\(10\\); -webkit-transform-origin: 0 0; transform: scale\\(10\\); transform-origin: 0 0;">' +
+                    '<foreignObject x="0" y="0" width="12" height="99" style="-webkit-transform: scale\\(10\\); -webkit-transform-origin: 0 0; transform: scale\\(10\\); transform-origin: 0 0;.*">' +
                         '<html xmlns="http://www.w3.org/1999/xhtml">' +
                             '<head>' +
                                 '<title(/>|></title>)' +
@@ -112,9 +123,7 @@ describe("The rendering process", function () {
             var zoomLevel = 0;
             var svgCode = render.getSvgForDocument(doc, aRenderSize(123, 987), zoomLevel);
 
-            expect(svgCode).toMatch(new RegExp(
-                '<foreignObject x="0" y="0" width="123" height="987">'
-            ));
+            expect(svgCode).not.toMatch(new RegExp("scale"));
         });
 
         it("should raise an error on invalid source", function () {
@@ -127,45 +136,31 @@ describe("The rendering process", function () {
             expect(function () { render.getSvgForDocument(doc, aRenderSize(), 1); }).toThrow(error);
         });
 
-        describe("workAroundWebkitBugIgnoringTheFirstRuleInCSS", function () {
-            var originalUserAgent, myUserAgent;
+        it("should work around collapsing margins in Chrome & Safari", function () {
+            // Bottom margin that would trigger a collapsing margin with the following SVG
+            var topChild = document.createElement('div');
+            topChild.style.marginBottom = "200px";
+            topChild.innerHTML = 'text';
 
-            beforeEach(function () {
-                originalUserAgent = window.navigator.userAgent;
-                // Mock userAgent, does not work under Safari
-                navigator.__defineGetter__('userAgent', function () {
-                    return myUserAgent;
-                });
-            });
+            sandbox.appendChild(topChild);
 
-            afterEach(function () {
-                myUserAgent = originalUserAgent;
-            });
 
-            it("should add a workaround for Webkit to account for first CSS rules being ignored", function () {
-                var doc = document.implementation.createHTMLDocument(""),
-                    svgCode;
+            var doc = document.implementation.createHTMLDocument("");
+            // Margin top will inside the SVG will collapse
+            doc.body.innerHTML = '<div class="svgContent" style="margin-top: 200px;">content</div>';
+            // HACK avoid XHTML being pasted into the DOM below
+            doc.head.querySelector('title').innerText = "meh";
 
-                myUserAgent = "WebKit";
-                testHelper.addStyleToDocument(doc, 'span { background-image: url("data:image/png;base64,soMEfAkebASE64="); }');
+            var tempChild = document.createElement('div');
+            tempChild.innerHTML = render.getSvgForDocument(doc, aRenderSize(100, 100), 1);
 
-                svgCode = render.getSvgForDocument(doc, aRenderSize(), 1);
+            sandbox.appendChild(tempChild.childNodes[0]);
 
-                expect(svgCode).toMatch(/<style type="text\/css">\s*span \{\}/);
-            });
 
-            ifNotInWebkitIt("should not add a workaround outside of WebKit", function () {
-                var doc = document.implementation.createHTMLDocument(""),
-                    svgCode;
+            // Work around WebKit reporting offset across the SVG element
+            sandbox.querySelector('svg').style.position = "relative";
 
-                myUserAgent = "Something else";
-                testHelper.addStyleToDocument(doc, 'span { background-image: url("data:image/png;base64,soMEfAkebASE64="); }');
-
-                svgCode = render.getSvgForDocument(doc, aRenderSize(), 1);
-
-                expect(svgCode).not.toMatch(/span \{\}/);
-            });
-
+            expect(sandbox.querySelector('.svgContent').offsetTop).toBe(200);
         });
     });
 
@@ -301,7 +296,7 @@ describe("The rendering process", function () {
                     {zoom: 42}
                 );
                 expect(render.getSvgForDocument).toHaveBeenCalledWith(doc, calculatedSize, 42);
-                expect(render.renderSvg).toHaveBeenCalledWith(svg, canvas);
+                expect(render.renderSvg).toHaveBeenCalledWith(svg);
 
                 done();
             });
