@@ -4,6 +4,5 @@
 /node_modules
 /attic
 /test/performance_test_pages
-dist
-build
+/build
 /slimerjs/
